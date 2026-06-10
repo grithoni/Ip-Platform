@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  phone     String?  @unique
+  name      String
+  role      String   @default("PARTY") // PARTY | EXPERT | ADMIN
+  company   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applicantCases     Case[]              @relation("ApplicantCases")
+  respondentCases    Case[]              @relation("RespondentCases")
+  parties            Party[]
+  uploadedDocuments  Document[]          @relation("UploadedBy")
+  expertProfile      Expert?
+  sentMessages       Message[]           @relation("SentBy")
+  receivedMessages   Message[]           @relation("ReceivedBy")
+  auditLogs          AuditLog[]
+}
+
+model Case {
+  id              String    @id @default(cuid())
+  caseNumber      String    @unique // ED-2026-001
+  patentNumber    String
+  patentTitle     String
+  disputeType     String // INFRINGEMENT | VALUATION | LICENSING | OTHER
+  amountInDispute Float?
+  description     String?
+  status          String    @default("DRAFT") // DRAFT | SUBMITTED | ACCEPTED | EXPERT_ASSIGNING | IN_EVALUATION | DETERMINATION_ISSUED | COMPLETED | CLOSED
+  applicantId     String
+  respondentId    String?
+  responseDeadline DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  applicant      User                @relation("ApplicantCases", fields: [applicantId], references: [id])
+  respondent     User?               @relation("RespondentCases", fields: [respondentId], references: [id])
+  parties        Party[]
+  documents      Document[]
+  assignments    ExpertAssignment[]
+  aiAnalyses     AIAnalysis[]
+  determinations Determination[]
+  messages       Message[]           @relation("CaseMessages")
+}
+
+model Party {
+  id          String   @id @default(cuid())
+  userId      String
+  caseId      String
+  role        String // APPLICANT | RESPONDENT
+  company     String?
+  contactInfo String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, caseId])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  caseId     String
+  uploaderId String
+  fileName   String
+  filePath   String
+  fileType   String // pdf | doc | docx | jpg | png
+  fileSize   Int
+  category   String // PATENT_CERTIFICATE | CLAIMS | EVIDENCE | TECHNICAL_DESCRIPTION | INFRINGEMENT_EVIDENCE | OTHER
+  uploadTime DateTime @default(now())
+
+  case     Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploader User @relation("UploadedBy", fields: [uploaderId], references: [id])
+}
+
+model Expert {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  name            String
+  technicalFields String // JSON array
+  qualifications  String?
+  availability    String   @default("AVAILABLE") // AVAILABLE | BUSY | UNAVAILABLE
+  hourlyRate      Float?
+  bio             String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id])
+  assignments  ExpertAssignment[]
+  determinations Determination[]
+}
+
+model ExpertAssignment {
+  id                String    @id @default(cuid())
+  caseId            String
+  expertId          String
+  assignedAt        DateTime  @default(now())
+  status            String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | COMPLETED
+  declarationSigned Boolean   @default(false)
+  declarationSignedAt DateTime?
+
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  expert Expert @relation(fields: [expertId], references: [id])
+
+  @@unique([caseId, expertId])
+}
+
+model AIAnalysis {
+  id           String    @id @default(cuid())
+  caseId       String
+  analysisType String // CLAIM_INTERPRETATION | INFRINGEMENT_COMPARISON | VALUATION
+  status       String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  result       String? // JSON blob
+  error        String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model Determination {
+  id                String    @id @default(cuid())
+  caseId            String
+  expertId          String
+  type              String // INTERIM | FINAL
+  content           String
+  issuedAt          DateTime  @default(now())
+  correctedAt       DateTime?
+  correctionContent String?
+
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  expert Expert @relation(fields: [expertId], references: [id])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  caseId     String?
+  content    String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  from User  @relation("SentBy", fields: [fromUserId], references: [id])
+  to   User  @relation("ReceivedBy", fields: [toUserId], references: [id])
+  case Case? @relation("CaseMessages", fields: [caseId], references: [id])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  targetType String // CASE | USER | EXPERT | DOCUMENT | DETERMINATION
+  targetId   String
+  details    String? // JSON blob
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
