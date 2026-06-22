@@ -39,7 +39,7 @@ export default function NewCaseClient({
   useEffect(() => {
     if (assessmentId) {
       getAssessment(assessmentId).then((assessment) => {
-        if (assessment) {
+        if (assessment && !("error" in assessment)) {
           const fieldsToSet: Record<string, string> = {};
           if (assessment.disputeType) fieldsToSet.disputeType = assessment.disputeType;
           if (assessment.patentNumber) fieldsToSet.patentNumber = assessment.patentNumber;

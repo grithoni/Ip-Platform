@@ -6,24 +6,20 @@ import {
   TeamOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  AuditOutlined,
+  SolutionOutlined,
 } from "@ant-design/icons";
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: "草稿", color: "default" },
-  SUBMITTED: { label: "已提交", color: "processing" },
-  ACCEPTED: { label: "已受理", color: "blue" },
-  EXPERT_ASSIGNING: { label: "专家分配中", color: "orange" },
-  IN_EVALUATION: { label: "评估中", color: "cyan" },
-  DETERMINATION_ISSUED: { label: "已裁决", color: "green" },
-  COMPLETED: { label: "已完成", color: "green" },
-  CLOSED: { label: "已关闭", color: "default" },
-};
+import { STATUS_MAP } from "@/lib/constants";
 
 interface DashboardData {
   totalCases: number;
   activeCases: number;
   totalExperts: number;
   totalUsers: number;
+  pendingApplications: number;
+  activeENE: number;
+  pendingResponses: number;
   recentCases: Array<{
     id: string;
     caseNumber: string;
@@ -66,7 +62,7 @@ export default function AdminDashboardClient({ data }: { data: DashboardData }) 
   return (
     <div>
       <h2 style={{ marginBottom: 24 }}>管理仪表盘</h2>
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card>
             <Statistic title="总案件数" value={data.totalCases} prefix={<FileTextOutlined />} />
@@ -85,6 +81,38 @@ export default function AdminDashboardClient({ data }: { data: DashboardData }) 
         <Col span={6}>
           <Card>
             <Statistic title="用户数量" value={data.totalUsers} prefix={<CheckCircleOutlined />} />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="待审核专家申请"
+              value={data.pendingApplications}
+              prefix={<SolutionOutlined />}
+              styles={data.pendingApplications > 0 ? { content: { color: "#fa8c16" } } : {}}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="进行中 ENE 评估"
+              value={data.activeENE}
+              prefix={<AuditOutlined />}
+              styles={data.activeENE > 0 ? { content: { color: "#1890ff" } } : {}}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="待被申请人回复"
+              value={data.pendingResponses}
+              prefix={<ExclamationCircleOutlined />}
+              styles={data.pendingResponses > 0 ? { content: { color: "#fa8c16" } } : {}}
+            />
           </Card>
         </Col>
       </Row>

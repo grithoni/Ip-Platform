@@ -9,6 +9,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   LoginOutlined,
+  CompassOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,6 +52,11 @@ export default function MainLayout({
       key: "home",
       icon: <HomeOutlined />,
       label: <Link href="/">首页</Link>,
+    },
+    {
+      key: "assessment",
+      icon: <CompassOutlined />,
+      label: <Link href="/assessment">评估引导</Link>,
     },
     {
       key: "cases",

@@ -14,6 +14,16 @@ export default async function AdminDashboardPage() {
   const totalExperts = await prisma.expert.count();
   const totalUsers = await prisma.user.count();
 
+  const pendingApplications = await prisma.expertApplication.count({
+    where: { status: "PENDING" },
+  });
+  const activeENE = await prisma.eNEAssessment.count({
+    where: { status: { notIn: ["COMPLETED"] } },
+  });
+  const pendingResponses = await prisma.case.count({
+    where: { status: "RESPONDENT_PENDING" },
+  });
+
   const recentCases = await prisma.case.findMany({
     orderBy: { updatedAt: "desc" },
     take: 10,
@@ -28,6 +38,9 @@ export default async function AdminDashboardPage() {
     activeCases,
     totalExperts,
     totalUsers,
+    pendingApplications,
+    activeENE,
+    pendingResponses,
     recentCases: recentCases.map((c) => ({
       id: c.id,
       caseNumber: c.caseNumber,

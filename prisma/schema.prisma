@@ -25,6 +25,12 @@ model User {
   sentMessages       Message[]           @relation("SentBy")
   receivedMessages   Message[]           @relation("ReceivedBy")
   auditLogs          AuditLog[]
+  adrAssessments     ADRAssessment[]
+  caseResponses      CaseResponse[]      @relation("ResponseBy")
+  expertApplications ExpertApplication[] @relation("Applicant")
+  reviewedApplications ExpertApplication[] @relation("Reviewer")
+  conflictOfInterests  ConflictOfInterest[] @relation("PartyConflicts")
+  expertRatings      ExpertRating[]      @relation("Rater")
 }
 
 model Case {
@@ -35,21 +41,27 @@ model Case {
   disputeType     String // INFRINGEMENT | VALUATION | LICENSING | OTHER
   amountInDispute Float?
   description     String?
-  status          String    @default("DRAFT") // DRAFT | SUBMITTED | ACCEPTED | EXPERT_ASSIGNING | IN_EVALUATION | DETERMINATION_ISSUED | COMPLETED | CLOSED
+  status          String    @default("DRAFT") // DRAFT | SUBMITTED | RESPONDENT_PENDING | RESPONDENT_REJECTED | COUNTERCLAIM_PENDING | ACCEPTED | EXPERT_ASSIGNING | IN_EVALUATION | DETERMINATION_ISSUED | COMPLETED | CLOSED
   applicantId     String
   respondentId    String?
   responseDeadline DateTime?
+  responseAction  String?   // ACCEPT | REJECT | COUNTERCLAIM
+  adrAssessmentId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  applicant      User                @relation("ApplicantCases", fields: [applicantId], references: [id])
-  respondent     User?               @relation("RespondentCases", fields: [respondentId], references: [id])
-  parties        Party[]
-  documents      Document[]
-  assignments    ExpertAssignment[]
-  aiAnalyses     AIAnalysis[]
-  determinations Determination[]
-  messages       Message[]           @relation("CaseMessages")
+  applicant       User                @relation("ApplicantCases", fields: [applicantId], references: [id])
+  respondent      User?               @relation("RespondentCases", fields: [respondentId], references: [id])
+  adrAssessment   ADRAssessment?      @relation(fields: [adrAssessmentId], references: [id])
+  parties         Party[]
+  documents       Document[]
+  assignments     ExpertAssignment[]
+  aiAnalyses      AIAnalysis[]
+  determinations  Determination[]
+  caseResponse    CaseResponse?
+  eneAssessments  ENEAssessment[]
+  expertRatings   ExpertRating[]
+  messages        Message[]           @relation("CaseMessages")
 }
 
 model Party {
@@ -83,20 +95,27 @@ model Document {
 }
 
 model Expert {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  name            String
-  technicalFields String // JSON array
-  qualifications  String?
-  availability    String   @default("AVAILABLE") // AVAILABLE | BUSY | UNAVAILABLE
-  hourlyRate      Float?
-  bio             String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  name              String
+  technicalFields   String // JSON array
+  qualifications    String?
+  availability      String   @default("AVAILABLE") // AVAILABLE | BUSY | UNAVAILABLE
+  hourlyRate        Float?
+  bio               String?
+  panelCategory     String?  // ELECTRONICS | SOFTWARE | MECHANICAL | CHEMICAL | PHARMACEUTICAL | OTHER
+  averageRating     Float?   @default(0)
+  totalRatings      Int      @default(0)
+  applicationStatus String?  // null (seed) | PENDING | APPROVED | REJECTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user         User                @relation(fields: [userId], references: [id])
-  assignments  ExpertAssignment[]
-  determinations Determination[]
+  user              User                @relation(fields: [userId], references: [id])
+  assignments       ExpertAssignment[]
+  determinations    Determination[]
+  eneAssessments    ENEAssessment[]
+  conflictOfInterests ConflictOfInterest[] @relation("ExpertConflicts")
+  ratings           ExpertRating[]
 }
 
 model ExpertAssignment {
@@ -165,4 +184,116 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ============================================================
+// 新增模型
+// ============================================================
+
+model ADRAssessment {
+  id                  String    @id @default(cuid())
+  userId              String?
+  disputeType         String    // INFRINGEMENT | VALUATION | LICENSING | OTHER
+  hasPatent           Boolean   @default(true)
+  patentNumber        String?
+  bothPartiesKnown    Boolean   @default(false)
+  respondentWilling   String?   // YES | NO | UNKNOWN
+  amountInDispute     String?   // UNDER_100W | RANGE_100W_500W | RANGE_500W_1M | OVER_1M
+  urgencyLevel        String?   // LOW | MEDIUM | HIGH
+  hasPriorNegotiation Boolean   @default(false)
+  technicalComplexity String?   // LOW | MEDIUM | HIGH
+  recommendedPath     String    // EXPERT_EVALUATION | ENE | MEDIATION | ARBITRATION
+  answers             String?   // JSON blob of all Q&A
+  createdAt           DateTime  @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id])
+  cases Case[]
+}
+
+model CaseResponse {
+  id               String   @id @default(cuid())
+  caseId           String   @unique
+  respondentId     String
+  action           String   // ACCEPT | REJECT | COUNTERCLAIM
+  responseText     String?
+  counterclaimDesc String?
+  respondedAt      DateTime @default(now())
+
+  case       Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  respondent User @relation("ResponseBy", fields: [respondentId], references: [id])
+}
+
+model ENEAssessment {
+  id                String    @id @default(cuid())
+  caseId            String
+  expertId          String
+  scope             String    // INFRINGEMENT_ONLY | VALUATION_ONLY | FULL
+  bindingType       String    @default("NON_BINDING") // BINDING | NON_BINDING
+  applicantAgreed   Boolean   @default(false)
+  respondentAgreed  Boolean   @default(false)
+  bothPartiesAgreed Boolean   @default(false)
+  content           String?
+  preliminaryOpinion String?
+  status            String    @default("DRAFT") // DRAFT | PENDING_AGREEMENT | IN_PROGRESS | OPINION_ISSUED | COMPLETED
+  issuedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  expert Expert @relation(fields: [expertId], references: [id])
+}
+
+model ExpertApplication {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  name              String
+  email             String
+  phone             String?
+  company           String?
+  technicalFields   String    // JSON array
+  qualifications    String?
+  experienceYears   Int?
+  bio               String?
+  hourlyRateExpect  Float?
+  status            String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewNote        String?
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  user     User  @relation("Applicant", fields: [userId], references: [id])
+  reviewer User? @relation("Reviewer", fields: [reviewedBy], references: [id])
+}
+
+model ExpertRating {
+  id         String   @id @default(cuid())
+  expertId   String
+  caseId     String
+  raterId    String
+  score      Int      // 1-5
+  comment    String?
+  dimensions String?  // JSON: {professionalism: 5, fairness: 4, timeliness: 3, expertise: 5}
+  createdAt  DateTime @default(now())
+
+  expert Expert @relation(fields: [expertId], references: [id])
+  case   Case   @relation(fields: [caseId], references: [id])
+  rater  User   @relation("Rater", fields: [raterId], references: [id])
+
+  @@unique([expertId, caseId, raterId])
+}
+
+model ConflictOfInterest {
+  id          String   @id @default(cuid())
+  expertId    String
+  partyUserId String
+  reason      String   // SAME_COMPANY | PRIOR_REPRESENTATION | FAMILY | FINANCIAL | OTHER
+  details     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  expert    Expert @relation("ExpertConflicts", fields: [expertId], references: [id])
+  partyUser User   @relation("PartyConflicts", fields: [partyUserId], references: [id])
+
+  @@unique([expertId, partyUserId])
 }

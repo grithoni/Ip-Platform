@@ -8,7 +8,7 @@ const adapter = new PrismaBetterSqlite3({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // Clean existing data
+  // Clean existing data (in dependency order)
   await prisma.auditLog.deleteMany();
   await prisma.message.deleteMany();
   await prisma.determination.deleteMany();
@@ -16,8 +16,14 @@ async function main() {
   await prisma.expertAssignment.deleteMany();
   await prisma.document.deleteMany();
   await prisma.party.deleteMany();
+  await prisma.caseResponse.deleteMany();
+  await prisma.expertRating.deleteMany();
+  await prisma.eNEAssessment.deleteMany();
   await prisma.case.deleteMany();
+  await prisma.conflictOfInterest.deleteMany();
+  await prisma.expertApplication.deleteMany();
   await prisma.expert.deleteMany();
+  await prisma.aDRAssessment.deleteMany();
   await prisma.user.deleteMany();
 
   // Create admin user
@@ -79,6 +85,7 @@ async function main() {
       availability: "AVAILABLE",
       hourlyRate: 3000,
       bio: "清华大学知识产权研究院教授，专注通信领域专利分析20余年",
+      panelCategory: "ELECTRONICS",
     },
   });
 
@@ -100,6 +107,7 @@ async function main() {
       availability: "AVAILABLE",
       hourlyRate: 2500,
       bio: "金杜律师事务所合伙人，专注互联网和AI领域知识产权诉讼",
+      panelCategory: "SOFTWARE",
     },
   });
 
@@ -112,7 +120,7 @@ async function main() {
       company: "中国科学院微电子研究所",
     },
   });
-  await prisma.expert.create({
+  const expert3 = await prisma.expert.create({
     data: {
       userId: expertUser3.id,
       name: "赵博士",
@@ -121,6 +129,7 @@ async function main() {
       availability: "BUSY",
       hourlyRate: 3500,
       bio: "中科院微电子研究所高级工程师，半导体封装技术专家",
+      panelCategory: "ELECTRONICS",
     },
   });
 
@@ -313,6 +322,137 @@ async function main() {
     data: { userId: applicant.id, caseId: case3.id, role: "APPLICANT", company: "深圳华芯科技有限公司" },
   });
 
+  // ============================================================
+  // 新增模型种子数据
+  // ============================================================
+
+  // 新用户：周工程师（申请成为专家的 PARTY 用户）
+  const user5Password = await bcrypt.hash("test123", 10);
+  const user5 = await prisma.user.create({
+    data: {
+      email: "zhou@ip.com",
+      password: user5Password,
+      name: "周工程师",
+      role: "PARTY",
+      company: "华为技术有限公司",
+      phone: "13800138005",
+    },
+  });
+
+  // 专家申请（周工程师申请成为专家）
+  await prisma.expertApplication.create({
+    data: {
+      userId: user5.id,
+      name: "周工程师",
+      email: "zhou@ip.com",
+      phone: "13800138005",
+      company: "华为技术有限公司",
+      technicalFields: JSON.stringify(["通信", "5G", "物联网"]),
+      qualifications: "博士学位, 高级工程师",
+      experienceYears: 12,
+      bio: "华为技术有限公司高级工程师，5G标准专利主要发明人之一",
+      hourlyRateExpect: 3000,
+      status: "PENDING",
+    },
+  });
+
+  // 被申请人回复（case1 - 李强接受评估）
+  await prisma.caseResponse.create({
+    data: {
+      caseId: case1.id,
+      respondentId: respondent.id,
+      action: "ACCEPT",
+      responseText: "同意参与评估程序，愿配合提供相关技术资料",
+    },
+  });
+
+  // ADR 评估引导（关联到 case2）
+  const adrAssessment = await prisma.aDRAssessment.create({
+    data: {
+      userId: applicant.id,
+      disputeType: "INFRINGEMENT",
+      hasPatent: true,
+      patentNumber: "ZL202210987654.3",
+      bothPartiesKnown: true,
+      respondentWilling: "YES",
+      amountInDispute: "RANGE_100W_500W",
+      urgencyLevel: "MEDIUM",
+      hasPriorNegotiation: false,
+      technicalComplexity: "HIGH",
+      recommendedPath: "EXPERT_EVALUATION",
+      answers: JSON.stringify({
+        disputeType: "INFRINGEMENT",
+        hasPatent: true,
+        patentNumber: "ZL202210987654.3",
+        bothPartiesKnown: true,
+        respondentWilling: "YES",
+        amountInDispute: "RANGE_100W_500W",
+        urgencyLevel: "MEDIUM",
+        hasPriorNegotiation: false,
+        technicalComplexity: "HIGH",
+      }),
+    },
+  });
+
+  // 关联 case2 的 ADR 评估
+  await prisma.case.update({
+    where: { id: case2.id },
+    data: { adrAssessmentId: adrAssessment.id },
+  });
+
+  // ENE 评估（case2 - 使用赵博士作为 ENE 专家）
+  await prisma.eNEAssessment.create({
+    data: {
+      caseId: case2.id,
+      expertId: expert3.id,
+      scope: "FULL",
+      bindingType: "NON_BINDING",
+      applicantAgreed: false,
+      respondentAgreed: false,
+      bothPartiesAgreed: false,
+      status: "PENDING_AGREEMENT",
+    },
+  });
+
+  // 专家评分（王教授在 case1 中获得的评分）
+  await prisma.expertRating.create({
+    data: {
+      expertId: expert1.id,
+      caseId: case1.id,
+      raterId: applicant.id,
+      score: 5,
+      comment: "王教授专业水平很高，分析透彻",
+      dimensions: JSON.stringify({ professionalism: 5, fairness: 5, timeliness: 4, expertise: 5 }),
+    },
+  });
+  await prisma.expertRating.create({
+    data: {
+      expertId: expert1.id,
+      caseId: case1.id,
+      raterId: respondent.id,
+      score: 4,
+      comment: "分析专业客观，但希望时间更充裕",
+      dimensions: JSON.stringify({ professionalism: 4, fairness: 5, timeliness: 3, expertise: 5 }),
+    },
+  });
+
+  // 更新王教授的平均评分
+  await prisma.expert.update({
+    where: { id: expert1.id },
+    data: { averageRating: 4.5, totalRatings: 2 },
+  });
+
+  // 利益冲突记录（陈律师与申请人张明有利益冲突）
+  await prisma.conflictOfInterest.create({
+    data: {
+      expertId: expert2.id,
+      partyUserId: applicant.id,
+      reason: "PRIOR_REPRESENTATION",
+      details: "陈律师曾代理张明所在公司的专利申请事务",
+      isActive: true,
+    },
+  });
+
   // Audit logs
   const auditEntries = [
     { userId: applicant.id, action: "CASE_CREATED", targetType: "CASE", targetId: case1.id, details: "创建案件 ED-2026-001" },
@@ -335,6 +475,7 @@ async function main() {
     expert1: { email: "expert@ip.com", password: "test123" },
     expert2: { email: "expert2@ip.com", password: "test123" },
     expert3: { email: "expert3@ip.com", password: "test123" },
+    applicantExpert: { email: "zhou@ip.com", password: "test123" },
   });
 }
 

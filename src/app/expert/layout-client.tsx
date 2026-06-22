@@ -8,6 +8,7 @@ import {
   EditOutlined,
   UserOutlined,
   LogoutOutlined,
+  ExperimentOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -57,6 +58,11 @@ export default function ExpertLayoutClient({
       key: "profile",
       icon: <UserOutlined />,
       label: <Link href="/expert/profile">个人资料</Link>,
+    },
+    {
+      key: "ene",
+      icon: <ExperimentOutlined />,
+      label: <Link href="/expert/ene">ENE评估</Link>,
     },
   ];
 

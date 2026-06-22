@@ -29,6 +29,7 @@ export default async function CaseDetailPage({
         orderBy: { issuedAt: "desc" },
         include: { expert: { select: { name: true } } },
       },
+      caseResponse: true,
     },
   });
 
@@ -100,6 +101,15 @@ export default async function CaseDetailPage({
       createdAt: m.createdAt.toISOString(),
       readAt: m.readAt?.toISOString() || null,
     })),
+    caseResponse: caseData.caseResponse
+      ? {
+          action: caseData.caseResponse.action,
+          responseText: caseData.caseResponse.responseText,
+          counterclaimDesc: caseData.caseResponse.counterclaimDesc,
+          respondedAt: caseData.caseResponse.respondedAt.toISOString(),
+        }
+      : null,
+    isRespondent: caseData.respondentId === session.userId,
     currentUserId: session.userId,
     currentUserRole: session.role,
   };

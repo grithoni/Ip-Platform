@@ -7,24 +7,7 @@ import {
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useState } from "react";
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: "草稿", color: "default" },
-  SUBMITTED: { label: "已提交", color: "processing" },
-  ACCEPTED: { label: "已受理", color: "blue" },
-  EXPERT_ASSIGNING: { label: "专家分配中", color: "orange" },
-  IN_EVALUATION: { label: "评估中", color: "cyan" },
-  DETERMINATION_ISSUED: { label: "已裁决", color: "green" },
-  COMPLETED: { label: "已完成", color: "green" },
-  CLOSED: { label: "已关闭", color: "default" },
-};
-
-const DISPUTE_MAP: Record<string, string> = {
-  INFRINGEMENT: "侵权纠纷",
-  VALUATION: "估值评估",
-  LICENSING: "许可费率",
-  OTHER: "其他",
-};
+import { STATUS_MAP, DISPUTE_MAP } from "@/lib/constants";
 
 interface CaseItem {
   id: string;

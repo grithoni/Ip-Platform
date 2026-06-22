@@ -8,18 +8,13 @@ import {
   SolutionOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
+import { STATUS_MAP } from "@/lib/constants";
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
+const ASSIGNMENT_STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING: { label: "待接受", color: "orange" },
   ACCEPTED: { label: "已接受", color: "green" },
   DECLINED: { label: "已拒绝", color: "red" },
   COMPLETED: { label: "已完成", color: "blue" },
-};
-
-const CASE_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  IN_EVALUATION: { label: "评估中", color: "cyan" },
-  DETERMINATION_ISSUED: { label: "已裁决", color: "green" },
-  COMPLETED: { label: "已完成", color: "green" },
 };
 
 interface DashboardData {
@@ -48,7 +43,7 @@ export default function ExpertDashboardClient({ data }: { data: DashboardData })
       dataIndex: "status",
       key: "status",
       render: (v: string) => {
-        const s = STATUS_MAP[v];
+        const s = ASSIGNMENT_STATUS_MAP[v];
         return s ? <Tag color={s.color}>{s.label}</Tag> : v;
       },
     },
@@ -57,7 +52,7 @@ export default function ExpertDashboardClient({ data }: { data: DashboardData })
       dataIndex: "caseStatus",
       key: "caseStatus",
       render: (v: string) => {
-        const s = CASE_STATUS_MAP[v];
+        const s = STATUS_MAP[v];
         return s ? <Tag color={s.color}>{s.label}</Tag> : v;
       },
     },

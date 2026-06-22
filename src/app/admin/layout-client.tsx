@@ -9,6 +9,7 @@ import {
   MessageOutlined,
   AuditOutlined,
   LogoutOutlined,
+  ExperimentOutlined,
 } from "@ant-design/icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,6 +69,11 @@ export default function AdminLayoutClient({
       key: "audit",
       icon: <AuditOutlined />,
       label: <Link href="/admin/audit">审计日志</Link>,
+    },
+    {
+      key: "ene",
+      icon: <ExperimentOutlined />,
+      label: <Link href="/admin/ene">ENE管理</Link>,
     },
   ];
 

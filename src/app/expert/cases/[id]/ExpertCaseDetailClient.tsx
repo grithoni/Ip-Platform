@@ -9,53 +9,16 @@ import { sendMessage } from "@/actions/messages";
 import { triggerClaimAnalysis, triggerValuation } from "@/actions/ai-analysis";
 import { createDetermination } from "@/actions/determinations";
 import { signDeclaration } from "@/actions/experts";
+import {
+  STATUS_MAP,
+  DISPUTE_MAP,
+  DOC_CATEGORY_MAP,
+  ANALYSIS_TYPE_MAP,
+  ANALYSIS_STATUS_MAP,
+  DETERMINATION_TYPE_MAP,
+} from "@/lib/constants";
 
 const { TextArea } = Input;
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: "草稿", color: "default" },
-  SUBMITTED: { label: "已提交", color: "processing" },
-  ACCEPTED: { label: "已受理", color: "blue" },
-  EXPERT_ASSIGNING: { label: "专家分配中", color: "orange" },
-  IN_EVALUATION: { label: "评估中", color: "cyan" },
-  DETERMINATION_ISSUED: { label: "已裁决", color: "green" },
-  COMPLETED: { label: "已完成", color: "green" },
-  CLOSED: { label: "已关闭", color: "default" },
-};
-
-const DISPUTE_MAP: Record<string, string> = {
-  INFRINGEMENT: "侵权纠纷",
-  VALUATION: "估值评估",
-  LICENSING: "许可费率",
-  OTHER: "其他",
-};
-
-const DOC_CATEGORY_MAP: Record<string, string> = {
-  PATENT_CERTIFICATE: "专利证书",
-  CLAIMS: "权利要求书",
-  EVIDENCE: "证据材料",
-  TECHNICAL_DESCRIPTION: "技术说明",
-  INFRINGEMENT_EVIDENCE: "侵权证据",
-  OTHER: "其他",
-};
-
-const ANALYSIS_TYPE_MAP: Record<string, string> = {
-  CLAIM_INTERPRETATION: "权利要求解释",
-  INFRINGEMENT_COMPARISON: "侵权比对",
-  VALUATION: "估值分析",
-};
-
-const ANALYSIS_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "待处理", color: "default" },
-  PROCESSING: { label: "处理中", color: "processing" },
-  COMPLETED: { label: "已完成", color: "green" },
-  FAILED: { label: "失败", color: "red" },
-};
-
-const DETERMINATION_TYPE_MAP: Record<string, string> = {
-  INTERIM: "临时裁决",
-  FINAL: "最终裁决",
-};
 
 interface CaseDetailData {
   id: string;
