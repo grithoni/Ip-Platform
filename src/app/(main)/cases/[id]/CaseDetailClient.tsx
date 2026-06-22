@@ -1,58 +1,22 @@
 "use client";
 
-import { Card, Table, Tag, Tabs, Button, Upload, Modal, message, Descriptions, List, Space, Input, Collapse } from "antd";
+import { Card, Table, Tag, Tabs, Button, Upload, Modal, message, Descriptions, List, Space, Input, Collapse, Alert } from "antd";
 import { PlusOutlined, UploadOutlined, SendOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadDocument } from "@/actions/documents";
 import { sendMessage } from "@/actions/messages";
+import {
+  STATUS_MAP,
+  DISPUTE_MAP,
+  DOC_CATEGORY_MAP,
+  ANALYSIS_TYPE_MAP,
+  ANALYSIS_STATUS_MAP,
+  DETERMINATION_TYPE_MAP,
+  RESPONSE_ACTION_MAP,
+} from "@/lib/constants";
 
 const { TextArea } = Input;
-
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: "草稿", color: "default" },
-  SUBMITTED: { label: "已提交", color: "processing" },
-  ACCEPTED: { label: "已受理", color: "blue" },
-  EXPERT_ASSIGNING: { label: "专家分配中", color: "orange" },
-  IN_EVALUATION: { label: "评估中", color: "cyan" },
-  DETERMINATION_ISSUED: { label: "已裁决", color: "green" },
-  COMPLETED: { label: "已完成", color: "green" },
-  CLOSED: { label: "已关闭", color: "default" },
-};
-
-const DISPUTE_MAP: Record<string, string> = {
-  INFRINGEMENT: "侵权纠纷",
-  VALUATION: "估值评估",
-  LICENSING: "许可费率",
-  OTHER: "其他",
-};
-
-const DOC_CATEGORY_MAP: Record<string, string> = {
-  PATENT_CERTIFICATE: "专利证书",
-  CLAIMS: "权利要求书",
-  EVIDENCE: "证据材料",
-  TECHNICAL_DESCRIPTION: "技术说明",
-  INFRINGEMENT_EVIDENCE: "侵权证据",
-  OTHER: "其他",
-};
-
-const ANALYSIS_TYPE_MAP: Record<string, string> = {
-  CLAIM_INTERPRETATION: "权利要求解释",
-  INFRINGEMENT_COMPARISON: "侵权比对",
-  VALUATION: "估值分析",
-};
-
-const ANALYSIS_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "待处理", color: "default" },
-  PROCESSING: { label: "处理中", color: "processing" },
-  COMPLETED: { label: "已完成", color: "green" },
-  FAILED: { label: "失败", color: "red" },
-};
-
-const DETERMINATION_TYPE_MAP: Record<string, string> = {
-  INTERIM: "临时裁决",
-  FINAL: "最终裁决",
-};
 
 interface CaseDetailData {
   id: string;
@@ -108,6 +72,13 @@ interface CaseDetailData {
     createdAt: string;
     readAt: string | null;
   }>;
+  caseResponse: {
+    action: string;
+    responseText: string | null;
+    counterclaimDesc: string | null;
+    respondedAt: string;
+  } | null;
+  isRespondent: boolean;
   currentUserId: string;
   currentUserRole: string;
 }
@@ -167,6 +138,38 @@ export default function CaseDetailClient({ data }: { data: CaseDetailData }) {
 
   const overviewContent = (
     <div>
+      {/* Respondent prompt */}
+      {data.isRespondent && data.status === "RESPONDENT_PENDING" && !data.caseResponse && (
+        <Alert
+          type="warning"
+          message="您有一起待回复的案件"
+          description={
+            <span>
+              请在{data.responseDeadline
+                ? `${new Date(data.responseDeadline).toLocaleDateString("zh-CN")}前`
+                : "规定时间内"}回复。
+              <Button
+                type="link"
+                size="small"
+                onClick={() => router.push(`/cases/${data.id}/response`)}
+              >
+                立即回复
+              </Button>
+            </span>
+          }
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+      )}
+      {data.caseResponse && (
+        <Alert
+          type="success"
+          message={`已回复：${RESPONSE_ACTION_MAP[data.caseResponse.action]?.label || data.caseResponse.action}`}
+          description={`回复时间：${new Date(data.caseResponse.respondedAt).toLocaleDateString("zh-CN")}`}
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+      )}
       <Descriptions bordered column={2} style={{ marginBottom: 24 }}>
         <Descriptions.Item label="案件编号">{data.caseNumber}</Descriptions.Item>
         <Descriptions.Item label="专利号">{data.patentNumber}</Descriptions.Item>
@@ -416,3 +419,6 @@ export default function CaseDetailClient({ data }: { data: CaseDetailData }) {
     </div>
   );
 }
+            const isMine = m.fromName === data.applicant.name
+              ? data.currentUserId === data.applicant.id
+              : data.currentUserId !== data.applicant.id;

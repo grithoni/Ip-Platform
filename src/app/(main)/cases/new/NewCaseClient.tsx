@@ -1,36 +1,30 @@
 "use client";
 
-import { Card, Form, Input, Select, Button, Steps, message, Upload, Space, Descriptions, Tag } from "antd";
+import { Card, Form, Input, Select, Button, Steps, message, Upload, Space, Descriptions, Tag, Alert } from "antd";
 import { InboxOutlined, ArrowLeftOutlined } from "@ant-design/icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createCase } from "@/actions/cases";
+import { createCase, submitCase } from "@/actions/cases";
 import { uploadDocument } from "@/actions/documents";
+import { getAssessment } from "@/actions/adr-assessment";
+import { DISPUTE_OPTIONS, DOC_CATEGORY_OPTIONS } from "@/lib/constants";
 
 const { TextArea } = Input;
 const { Dragger } = Upload;
 
-const DISPUTE_OPTIONS = [
-  { value: "INFRINGEMENT", label: "侵权纠纷" },
-  { value: "VALUATION", label: "估值评估" },
-  { value: "LICENSING", label: "许可费率" },
-  { value: "OTHER", label: "其他" },
-];
-
-const DOC_CATEGORY_OPTIONS = [
-  { value: "PATENT_CERTIFICATE", label: "专利证书" },
-  { value: "CLAIMS", label: "权利要求书" },
-  { value: "EVIDENCE", label: "证据材料" },
-  { value: "TECHNICAL_DESCRIPTION", label: "技术说明" },
-  { value: "INFRINGEMENT_EVIDENCE", label: "侵权证据" },
-  { value: "OTHER", label: "其他" },
-];
-
-export default function NewCaseClient() {
+export default function NewCaseClient({
+  assessmentId,
+  initialDisputeType,
+}: {
+  assessmentId?: string;
+  initialDisputeType?: string;
+}) {
   const router = useRouter();
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(false);
   const [caseId, setCaseId] = useState<string | null>(null);
+  const [adrAssessmentId, setAdrAssessmentId] = useState<string | null>(assessmentId || null);
   const [caseInfo, setCaseInfo] = useState<{
     patentNumber: string;
     patentTitle: string;
@@ -41,6 +35,22 @@ export default function NewCaseClient() {
   } | null>(null);
   const [form] = Form.useForm();
 
+  // Pre-fill from ADR assessment
+  useEffect(() => {
+    if (assessmentId) {
+      getAssessment(assessmentId).then((assessment) => {
+        if (assessment) {
+          const fieldsToSet: Record<string, string> = {};
+          if (assessment.disputeType) fieldsToSet.disputeType = assessment.disputeType;
+          if (assessment.patentNumber) fieldsToSet.patentNumber = assessment.patentNumber;
+          form.setFieldsValue(fieldsToSet);
+        }
+      });
+    } else if (initialDisputeType) {
+      form.setFieldsValue({ disputeType: initialDisputeType });
+    }
+  }, [assessmentId, initialDisputeType, form]);
+
   const handleCreateCase = async () => {
     try {
       const values = await form.validateFields();
@@ -50,6 +60,9 @@ export default function NewCaseClient() {
       Object.entries(values).forEach(([key, value]) => {
         if (value) formData.append(key, value as string);
       });
+      if (adrAssessmentId) {
+        formData.append("adrAssessmentId", adrAssessmentId);
+      }
 
       const result = await createCase(formData);
       if (result.error) {
@@ -82,7 +95,20 @@ export default function NewCaseClient() {
   };
 
   const handleSubmit = async () => {
-    setCurrent(2);
+    if (!caseId) return;
+    setLoading(true);
+    try {
+      const result = await submitCase(caseId);
+      if (result.error) {
+        message.error(result.error);
+        return;
+      }
+      setCurrent(2);
+    } catch {
+      message.error("提交失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const steps = [
@@ -160,6 +186,16 @@ export default function NewCaseClient() {
       </div>
 
       <Card>
+        {adrAssessmentId && (
+          <Alert
+            type="info"
+            message="已从评估引导预填信息"
+            description="部分字段已根据您的评估结果自动填充，请核实并补充完整。"
+            showIcon
+            closable
+            style={{ marginBottom: 24 }}
+          />
+        )}
         <Steps current={current} items={steps.map((s) => ({ title: s.title }))} style={{ marginBottom: 32 }} />
         <div style={{ minHeight: 300 }}>{steps[current].content}</div>
         <div style={{ marginTop: 24, textAlign: "right" }}>

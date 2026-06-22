@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { generateCaseNumber } from "@/lib/case-number";
+import { ALLOWED_TRANSITIONS } from "@/lib/constants";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
@@ -13,6 +14,7 @@ const createCaseSchema = z.object({
   amountInDispute: z.string().optional(),
   description: z.string().optional(),
   respondentEmail: z.string().email("请输入有效的邮箱").optional().or(z.literal("")),
+  adrAssessmentId: z.string().optional(),
 });
 
 export async function createCase(formData: FormData) {
@@ -26,6 +28,7 @@ export async function createCase(formData: FormData) {
     amountInDispute: formData.get("amountInDispute") as string,
     description: formData.get("description") as string,
     respondentEmail: formData.get("respondentEmail") as string,
+    adrAssessmentId: formData.get("adrAssessmentId") as string,
   };
 
   const result = createCaseSchema.safeParse(data);
@@ -45,6 +48,7 @@ export async function createCase(formData: FormData) {
       description: data.description || null,
       status: "DRAFT",
       applicantId: session.userId,
+      adrAssessmentId: data.adrAssessmentId || null,
     },
   });
 
@@ -106,15 +110,27 @@ export async function submitCase(caseId: string) {
   if (caseRecord.status !== "DRAFT") return { error: "案件状态不允许提交" };
 
   const responseDeadline = new Date();
-  responseDeadline.setDate(responseDeadline.getDate() + 14);
+  responseDeadline.setDate(responseDeadline.getDate() + 15);
 
   await prisma.case.update({
     where: { id: caseId },
     data: {
-      status: "SUBMITTED",
+      status: "RESPONDENT_PENDING",
       responseDeadline,
     },
   });
+
+  // Notify respondent if linked
+  if (caseRecord.respondentId) {
+    await prisma.message.create({
+      data: {
+        fromUserId: session.userId,
+        toUserId: caseRecord.respondentId,
+        caseId,
+        content: `您有一起新的专利纠纷评估案件（${caseRecord.caseNumber}）等待回复，请在15天内登录平台进行回复。`,
+      },
+    });
+  }
 
   await prisma.auditLog.create({
     data: {
@@ -122,7 +138,7 @@ export async function submitCase(caseId: string) {
       action: "CASE_SUBMITTED",
       targetType: "CASE",
       targetId: caseId,
-      details: "提交案件审核",
+      details: "提交案件，等待被申请人回复",
     },
   });
 
@@ -138,16 +154,7 @@ export async function updateCaseStatus(caseId: string, newStatus: string, reason
   const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRecord) return { error: "案件不存在" };
 
-  const allowedTransitions: Record<string, string[]> = {
-    SUBMITTED: ["ACCEPTED", "DRAFT"],
-    ACCEPTED: ["EXPERT_ASSIGNING"],
-    EXPERT_ASSIGNING: ["IN_EVALUATION"],
-    IN_EVALUATION: ["DETERMINATION_ISSUED"],
-    DETERMINATION_ISSUED: ["COMPLETED"],
-    COMPLETED: ["CLOSED"],
-  };
-
-  const allowed = allowedTransitions[caseRecord.status] || [];
+  const allowed = ALLOWED_TRANSITIONS[caseRecord.status] || [];
   if (!allowed.includes(newStatus)) {
     return { error: `不允许从 ${caseRecord.status} 转换到 ${newStatus}` };
   }
@@ -173,30 +180,4 @@ export async function updateCaseStatus(caseId: string, newStatus: string, reason
 }
 
 export async function respondToCase(caseId: string, formData: FormData) {
-  const session = await getSession();
-  if (!session) return { error: "请先登录" };
-
-  const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
-  if (!caseRecord) return { error: "案件不存在" };
-  if (caseRecord.respondentId !== session.userId) return { error: "无权操作" };
-
-  const responseText = formData.get("responseText") as string;
-
-  await prisma.case.update({
-    where: { id: caseId },
-    data: { status: "ACCEPTED" },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.userId,
-      action: "CASE_RESPONDED",
-      targetType: "CASE",
-      targetId: caseId,
-      details: responseText || "被申请人确认受理",
-    },
-  });
-
-  revalidatePath("/cases");
-  return { success: true };
-}
+// respondToCase removed - use submitResponse from case-response.ts instead

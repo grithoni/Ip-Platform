@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+import { checkConflicts } from "./expert-admin";
+
 export async function assignExpert(caseId: string, expertId: string) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") return { error: "无权操作" };
@@ -15,6 +17,13 @@ export async function assignExpert(caseId: string, expertId: string) {
     where: { caseId_expertId: { caseId, expertId } },
   });
   if (existing) return { error: "该专家已分配到此案件" };
+
+  // Check for conflicts of interest
+  const { hasConflicts, conflicts } = await checkConflicts(expertId, caseId);
+  if (hasConflicts) {
+    const reasons = conflicts.map((c) => `${c.partyName}(${c.reason})`).join("、");
+    return { error: `该专家与案件当事人存在利益冲突：${reasons}` };
+  }
 
   await prisma.expertAssignment.create({
     data: { caseId, expertId, status: "PENDING" },
